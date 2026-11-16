@@ -1,4 +1,4 @@
-# Projeto Rede Social
+# Projeto Rede Social: Omeletty
 
 Projeto acadêmico desenvolvido para a disciplina de **Banco de Dados e Programação Orientada a Objetos**, com o objetivo de aplicar conceitos de modelagem, implementação e manipulação de um banco de dados relacional.
 
