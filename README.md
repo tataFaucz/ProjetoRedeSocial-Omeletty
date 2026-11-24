@@ -4,6 +4,17 @@ Projeto acadêmico desenvolvido para a disciplina de **Banco de Dados e Programa
 
 O sistema permite gerenciar usuários, publicações, comentários, mensagens, hashtags e relações entre essas entidades por meio de DAOs JDBC e uma interface Java Swing.
 
+## Versões do projeto e bancos isolados
+
+As implementações SQL e NoSQL ficam em branches separadas. A aplicação SQL desta branch usa somente PostgreSQL; a versão MongoDB tem sua própria branch, configuração e script. Os bancos têm nomes diferentes e não compartilham dados:
+
+| Versão | Branch | Banco e script |
+| --- | --- | --- |
+| SQL — Fase 1 | [`fase1-postgresql`](https://github.com/tataFaucz/ProjetoRedeSocial-Omeletty/tree/fase1-postgresql) | PostgreSQL, banco `rede_social`; script `RedeSocial_PostgreSQL.sql` nesta branch |
+| NoSQL — Fase 2 | [`fase2-mongodb`](https://github.com/tataFaucz/ProjetoRedeSocial-Omeletty/tree/fase2-mongodb) | MongoDB, banco `rede_social_nosql`; script `MongoDB_Init.js` na branch MongoDB |
+
+Use uma branch por vez. Esta versão aceita `POSTGRES_*` e `DB_*`; a versão MongoDB usa `MONGODB_URI` e `MONGODB_DATABASE`. Uma versão não lê nem altera as configurações ou o banco da outra.
+
 ## Funcionalidades
 
 - Cadastro, login e manutenção de usuários;
