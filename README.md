@@ -1,246 +1,105 @@
 # Projeto Rede Social
 
-Projeto acadêmico desenvolvido para a disciplina de **Banco de Dados e Programação Orientada a Objetos**, com o objetivo de aplicar conceitos de modelagem, implementação e manipulação de um banco de dados relacional.
+Projeto acadêmico desenvolvido para a disciplina de **Banco de Dados e Programação Orientada a Objetos**. A aplicação de rede social é desenvolvida em Java e utiliza PostgreSQL como sua persistência.
 
-A aplicação representa o domínio de uma **rede social**, permitindo o gerenciamento de usuários, publicações, comentários, mensagens e hashtags, além das relações entre essas entidades.
-
-O projeto utiliza **Java** para implementação da aplicação e **PostgreSQL** para armazenamento e gerenciamento dos dados.
-
----
-
-## Índice
-
-* [Descrição do Projeto](#descrição-do-projeto)
-* [Domínio e Estrutura de Dados](#domínio-e-estrutura-de-dados)
-* [Funcionalidades](#funcionalidades)
-* [Tecnologias Utilizadas](#tecnologias-utilizadas)
-* [Estrutura do Projeto](#estrutura-do-projeto)
-* [Requisitos](#requisitos)
-* [Configuração do Banco de Dados](#configuração-do-banco-de-dados)
-* [Compilação e Execução](#compilação-e-execução)
-* [Repositório](#repositório)
-* [Autores](#autores)
-
----
-
-## Descrição do Projeto
-
-O **Projeto Rede Social** consiste na implementação de uma aplicação para gerenciamento de informações de uma rede social, desenvolvida como parte da **Fase 1 do projeto da disciplina de Banco de Dados**.
-
-O sistema utiliza um banco de dados relacional para armazenar e relacionar informações referentes a usuários, fotos, comentários, mensagens e hashtags.
-
-Além das operações de cadastro e manutenção das entidades, o sistema contempla operações relacionadas aos relacionamentos entre usuários e publicações, bem como consultas que envolvem múltiplas tabelas.
-
----
-
-## Domínio e Estrutura de Dados
-
-O banco de dados é estruturado a partir das seguintes entidades principais:
-
-* **USUARIO** — representa os usuários da rede social;
-* **FOTO** — representa as publicações de fotos;
-* **COMENTARIO** — representa comentários realizados nas publicações;
-* **MENSAGEM** — representa mensagens entre usuários;
-* **HASHTAG** — representa hashtags associadas às publicações.
-
-O modelo também possui relações associativas para representar:
-
-* **SEGUIDOR** — relacionamento de seguimento entre usuários;
-* **CURTIDA** — curtidas realizadas pelos usuários nas publicações;
-* **COMPARTILHAMENTO** — compartilhamentos de publicações;
-* **FOTO_HASHTAG** — associação entre fotos e hashtags.
-
----
+O sistema permite gerenciar usuários, publicações, comentários, mensagens, hashtags e relações entre essas entidades por meio de DAOs JDBC e uma interface Java Swing.
 
 ## Funcionalidades
 
-A aplicação contempla as operações previstas para a implementação do banco de dados.
+- Cadastro, login e manutenção de usuários;
+- Publicação e consulta de fotos, comentários e mensagens;
+- Seguir usuários, curtir e compartilhar publicações;
+- Associar hashtags e consultar publicações por hashtag;
+- Consultas de gestão: publicações por usuário, comentários por publicação e publicações por hashtag.
 
-### Operações sobre entidades
+## Tecnologias
 
-As entidades principais possuem operações de **CRUD**:
+- Java 11 ou superior e Java Swing;
+- PostgreSQL;
+- PostgreSQL JDBC Driver 42.7.7 (incluído em `lib/`);
+- PowerShell ou outro terminal para compilar e executar.
 
-* Cadastro;
-* Consulta;
-* Alteração;
-* Exclusão.
-
-Essas operações são aplicadas às seguintes entidades:
-
-* Usuários;
-* Fotos;
-* Comentários;
-* Mensagens;
-* Hashtags.
-
-### Operações sobre relações
-
-O sistema também contempla operações de negócio relacionadas às tabelas associativas:
-
-* Seguir e deixar de seguir usuários;
-* Curtir e remover curtida de uma publicação;
-* Compartilhar uma publicação;
-* Associar e remover hashtags de uma publicação.
-
-### Consultas e relatórios
-
-A aplicação possui consultas envolvendo mais de uma tabela, incluindo:
-
-1. **Publicações por usuário**;
-2. **Comentários das publicações**;
-3. **Publicações associadas a uma hashtag**.
-
-Essas consultas demonstram a utilização dos relacionamentos definidos no modelo relacional.
-
----
-
-## Tecnologias Utilizadas
-
-* **Java** — linguagem de programação;
-* **Java Swing** — interface da aplicação;
-* **PostgreSQL** — sistema gerenciador de banco de dados;
-* **JDBC** — conexão entre a aplicação Java e o PostgreSQL;
-* **PgAdmin4** — ferramenta utilizada para gerenciamento do banco de dados.
-
-O acesso aos dados é organizado utilizando o padrão **DAO (Data Access Object)**.
-
----
-
-## Estrutura do Projeto
+## Estrutura
 
 ```text
 projeto rede social/
-├── dados/        # Classes relacionadas às entidades e dados do sistema
-├── dao/          # Classes responsáveis pelo acesso ao banco de dados
-├── images/       # Imagens utilizadas pela aplicação
-├── negocios/     # Regras de negócio e inicialização do sistema
-├── ui/           # Interface gráfica da aplicação
-└── README.md     # Documentação do projeto
+├── dados/        # Entidades
+├── dao/          # Persistência JDBC
+├── negocios/     # Regras de negócio e inicialização
+├── testes/       # Testes unitários e de integração
+└── ui/           # Interface Swing
+lib/              # Driver JDBC
+RedeSocial_PostgreSQL.sql
+validacao_schema_postgresql.sql
 ```
 
-### Principais responsabilidades
+## Configuração do PostgreSQL
 
-**dados/**
-Contém as classes que representam as entidades utilizadas pela aplicação.
+Crie o banco `rede_social` em uma instância PostgreSQL local e execute `RedeSocial_PostgreSQL.sql` nesse banco (por exemplo, pelo pgAdmin ou `psql`). O script cria as tabelas, índices, chaves estrangeiras e regras de exclusão em cascata. `validacao_schema_postgresql.sql` contém consultas para verificar o schema. A aplicação não cria nem altera o schema automaticamente.
 
-**dao/**
-Contém as classes responsáveis pelas operações de persistência e acesso ao PostgreSQL.
+Configure a conexão por variáveis de ambiente ou propriedades Java. São aceitos os prefixos `POSTGRES_*` e `DB_*`; quando ambos são definidos, `POSTGRES_*` tem precedência:
 
-**negocios/**
-Contém a lógica de negócio e os fluxos de execução da aplicação.
+| Variável | Alternativa | Padrão |
+| --- | --- | --- |
+| `POSTGRES_URL` | `DB_URL` | URL formada abaixo |
+| `POSTGRES_HOST` | `DB_HOST` | `localhost` |
+| `POSTGRES_PORT` | `DB_PORT` | `5432` |
+| `POSTGRES_DATABASE` | `DB_NAME` | `rede_social` |
+| `POSTGRES_USER` | `DB_USER` | driver decide (não definido pela aplicação) |
+| `POSTGRES_PASSWORD` | `DB_PASSWORD` | não definida |
 
-**ui/**
-Contém as classes responsáveis pela interface gráfica desenvolvida em Java Swing.
+Sem uma URL explícita, a conexão usa `jdbc:postgresql://<host>:<port>/<database>`. Sem credenciais explícitas, o driver usa seu comportamento padrão local. Configure usuário e senha apropriados para a sua instância; a aplicação não presume credenciais e não inclua segredos no repositório.
 
-**images/**
-Contém imagens utilizadas pela aplicação.
-
----
-
-## Requisitos
-
-Para executar o projeto, são necessários:
-
-* Java 8 ou superior;
-* PostgreSQL;
-* Driver JDBC do PostgreSQL;
-* IDE ou ambiente para compilação de projetos Java.
-
-O banco de dados pode ser administrado utilizando o **PgAdmin4**.
-
----
-
-## Configuração do Banco de Dados
-
-Antes de executar a aplicação, é necessário possuir uma instância do PostgreSQL em execução.
-
-Configure as informações de conexão utilizadas pela aplicação:
-
-* **Host:** endereço do servidor PostgreSQL;
-* **Porta:** porta utilizada pelo PostgreSQL;
-* **Banco:** nome do banco de dados;
-* **Usuário:** usuário do PostgreSQL;
-* **Senha:** senha do usuário configurado.
-
-Exemplo de configuração utilizada no ambiente de desenvolvimento:
-
-```text
-DB_HOST=::1
-DB_PORT=5433
-DB_NAME=omellety
-DB_USER=postgres
-DB_PASSWORD=sua-senha
-```
-
-> A senha não deve ser armazenada no repositório. Utilize a senha configurada no ambiente local do PostgreSQL.
-
----
-
-## Compilação e Execução
-
-### 1. Clonar o repositório
+Exemplo no PowerShell (substitua usuário e senha pelos valores locais):
 
 ```powershell
-git clone https://github.com/tataFaucz/Projeto-Rede-Social.git
+$env:POSTGRES_URL = "jdbc:postgresql://localhost:5432/rede_social"
+$env:POSTGRES_USER = "seu_usuario"
+$env:POSTGRES_PASSWORD = "sua_senha"
 ```
 
-### 2. Acessar o diretório do projeto
+Também é possível usar `DB_URL`, `DB_USER` e `DB_PASSWORD` no lugar das variáveis `POSTGRES_*`.
+
+## Compilação e execução
+
+Na raiz do repositório, no PowerShell:
 
 ```powershell
-cd Projeto-Rede-Social
+$env:JAVA_TOOL_OPTIONS = "-Xms16m -Xmx128m -XX:MarkStackSize=1024"
+$sources = Get-ChildItem ".\projeto rede social" -Recurse -Filter "*.java" | ForEach-Object FullName
+javac -encoding UTF-8 -cp ".\lib\postgresql-42.7.7.jar" -d ".\out" $sources
+java -cp ".\out;.\lib\postgresql-42.7.7.jar" negocios.Main
 ```
-
-### 3. Configurar as variáveis de ambiente
-
-No PowerShell:
 
 ```powershell
-$env:DB_HOST="::1"
-$env:DB_PORT="5433"
-$env:DB_NAME="omellety"
-$env:DB_USER="postgres"
-$env:DB_PASSWORD="sua-senha"
+$env:POSTGRES_URL = "jdbc:postgresql://localhost:5433/omellety"
+>> $env:POSTGRES_USER = "postgres"    
+>> $securePassword = Read-Host "Senha do PostgreSQL" -AsSecureString
+>> $env:POSTGRES_PASSWORD = [System.Net.NetworkCredential]::new("", $securePassword).Password
+>> 
+>> java -cp ".\out;.\lib\postgresql-42.7.7.jar" negocios.Main
 ```
 
-Substitua os valores conforme a configuração do PostgreSQL utilizado no ambiente.
+No VS Code, use **Executar Rede Social** ou a tarefa **Executar projeto Java**. O driver JDBC já está incluído; não é necessário Maven.
 
-### 4. Compilar o projeto
+## Testes
+
+Os testes unitários não precisam de um banco de dados:
 
 ```powershell
-$sources = Get-ChildItem -Recurse -Filter *.java | Select-Object -ExpandProperty FullName
-
-javac -cp "lib\postgresql-42.7.7.jar" -d out $sources
+$sources = Get-ChildItem ".\projeto rede social" -Recurse -Filter "*.java" | ForEach-Object FullName
+javac -encoding UTF-8 -cp ".\lib\postgresql-42.7.7.jar" -d ".\out" $sources
+java -cp ".\out;.\lib\postgresql-42.7.7.jar" testes.ContaEtapa1Test --unit
 ```
 
-### 5. Executar a aplicação
+O teste de integração de cadastro/login/edição/exclusão exige um PostgreSQL configurado e conectado ao schema. Ele cria e remove registros de teste no banco informado:
 
 ```powershell
-java -cp "out;lib\postgresql-42.7.7.jar" negocios.Main
+java -cp ".\out;.\lib\postgresql-42.7.7.jar" testes.ContaEtapa1Test
 ```
 
-A aplicação será iniciada utilizando a configuração do banco de dados definida nas variáveis de ambiente.
+## Repositório e autoria
 
----
+Código-fonte: https://github.com/tataFaucz/Projeto-Rede-Social
 
-## Repositório
-
-O código-fonte, arquivos do projeto e demais materiais necessários para a execução estão disponíveis no repositório:
-
-**GitHub:**
-https://github.com/tataFaucz/Projeto-Rede-Social
-
-O repositório faz parte da entrega da **Fase 1 do projeto de Banco de Dados**.
-
----
-
-## Autores
-
-**Thais Faucz Jasse**
-
-Projeto desenvolvido para fins acadêmicos no curso de **Análise e Desenvolvimento de Sistemas — UDESC CCT**.
-
----
-
-## Observação
-
-Este projeto possui finalidade exclusivamente acadêmica e foi desenvolvido para aplicação prática dos conceitos de **bancos de dados relacionais, modelagem de dados, operações CRUD, relacionamentos entre entidades e consultas SQL**.
+**Thais Faucz Jasse** — projeto acadêmico do curso de Análise e Desenvolvimento de Sistemas, UDESC CCT.

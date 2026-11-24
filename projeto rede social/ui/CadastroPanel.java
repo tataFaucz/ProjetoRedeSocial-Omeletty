@@ -4,6 +4,8 @@ import negocios.Sistema;
 
 import javax.swing.*;
 import java.awt.*;
+import java.io.File;
+import javax.imageio.ImageIO;
 
 public class CadastroPanel extends JPanel {
     private Sistema sistema;
@@ -14,9 +16,18 @@ public class CadastroPanel extends JPanel {
         this.mainFrame = mainFrame;
         setLayout(new GridBagLayout());
         setBackground(MainFrame.AMARELO_CLARO);
+        setBorder(BorderFactory.createEmptyBorder(24, 28, 24, 28));
 
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(5, 5, 5, 5);
+
+        JLabel logo = MainFrame.criarLogo(145, 145);
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.gridwidth = 2;
+        gbc.anchor = GridBagConstraints.CENTER;
+        add(logo, gbc);
+        gbc.gridwidth = 1;
 
         JLabel lblNome = new JLabel("Nome:");
         JTextField txtNome = new JTextField(20);
@@ -29,6 +40,21 @@ public class CadastroPanel extends JPanel {
 
         JLabel lblFoto = new JLabel("Foto de Perfil (opcional):");
         JTextField txtFoto = new JTextField(20);
+        JButton btnEscolherFoto = new JButton("Selecionar...");
+        btnEscolherFoto.setPreferredSize(new Dimension(112, 28));
+        btnEscolherFoto.addActionListener(event -> {
+            JFileChooser seletor = new JFileChooser();
+            seletor.setDialogTitle("Selecionar foto de perfil");
+            if (seletor.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+                txtFoto.setText(seletor.getSelectedFile().getAbsolutePath());
+            }
+        });
+        JPanel campoFoto = new JPanel(new BorderLayout(5, 0));
+        campoFoto.add(txtFoto, BorderLayout.CENTER);
+        campoFoto.add(btnEscolherFoto, BorderLayout.EAST);
+        campoFoto.setOpaque(false);
+        campoFoto.setMinimumSize(new Dimension(280, 28));
+        campoFoto.setPreferredSize(new Dimension(340, 28));
 
         JLabel lblBiografia = new JLabel("Biografia (opcional):");
         JTextField txtBiografia = new JTextField(20);
@@ -66,19 +92,29 @@ public class CadastroPanel extends JPanel {
         btnVoltar.setBorder(BorderFactory.createLineBorder(MainFrame.AMARELO_BORDA, 2));
         btnVoltar.setFont(new Font("Arial", Font.BOLD, 13));
 
-        // Layout
-        gbc.gridx = 0; gbc.gridy = 0; add(lblNome, gbc);
-        gbc.gridx = 1; gbc.gridy = 0; add(txtNome, gbc);
-        gbc.gridx = 0; gbc.gridy = 1; add(lblEmail, gbc);
-        gbc.gridx = 1; gbc.gridy = 1; add(txtEmail, gbc);
-        gbc.gridx = 0; gbc.gridy = 2; add(lblSenha, gbc);
-        gbc.gridx = 1; gbc.gridy = 2; add(txtSenha, gbc);
-        gbc.gridx = 0; gbc.gridy = 3; add(lblFoto, gbc);
-        gbc.gridx = 1; gbc.gridy = 3; add(txtFoto, gbc);
-        gbc.gridx = 0; gbc.gridy = 4; add(lblBiografia, gbc);
-        gbc.gridx = 1; gbc.gridy = 4; add(txtBiografia, gbc);
-        gbc.gridx = 0; gbc.gridy = 5; add(btnCadastrar, gbc);
-        gbc.gridx = 1; gbc.gridy = 5; add(btnVoltar, gbc);
+        gbc.anchor = GridBagConstraints.LINE_END;
+        gbc.fill = GridBagConstraints.NONE;
+        gbc.weightx = 0;
+        gbc.gridx = 0; gbc.gridy = 1; add(lblNome, gbc);
+        gbc.gridy = 2; add(lblEmail, gbc);
+        gbc.gridy = 3; add(lblSenha, gbc);
+        gbc.gridy = 4; add(lblFoto, gbc);
+        gbc.gridy = 5; add(lblBiografia, gbc);
+
+        gbc.anchor = GridBagConstraints.LINE_START;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.weightx = 1;
+        gbc.gridx = 1; gbc.gridy = 1; add(txtNome, gbc);
+        gbc.gridy = 2; add(txtEmail, gbc);
+        gbc.gridy = 3; add(txtSenha, gbc);
+        gbc.gridy = 4; add(campoFoto, gbc);
+        gbc.gridy = 5; add(txtBiografia, gbc);
+
+        gbc.fill = GridBagConstraints.NONE;
+        gbc.weightx = 0;
+        gbc.anchor = GridBagConstraints.CENTER;
+        gbc.gridx = 1; gbc.gridy = 6; add(btnCadastrar, gbc);
+        gbc.gridx = 0; add(btnVoltar, gbc);
 
         btnCadastrar.addActionListener(e -> {
             String nome = txtNome.getText().trim();
@@ -87,20 +123,37 @@ public class CadastroPanel extends JPanel {
             String fotoPerfil = txtFoto.getText().trim();
             String biografia = txtBiografia.getText().trim();
 
-            if (nome.isEmpty() || email.isEmpty() || senha.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Preencha todos os campos obrigatórios.");
+            if (!fotoPerfil.isEmpty() && !fotoPerfil.startsWith("http://") && !fotoPerfil.startsWith("https://")) {
+                try {
+                    File arquivo = new File(fotoPerfil).getAbsoluteFile();
+                    if (!arquivo.isFile() || ImageIO.read(arquivo) == null) {
+                        JOptionPane.showMessageDialog(this, "Selecione um arquivo de imagem válido para a foto de perfil.");
+                        return;
+                    }
+                    fotoPerfil = arquivo.getAbsolutePath();
+                } catch (java.io.IOException ex) {
+                    JOptionPane.showMessageDialog(this, "Não foi possível ler a foto de perfil: " + ex.getMessage());
+                    return;
+                }
+            }
+
+            String erroValidacao = negocios.ValidacaoConta.validar(nome, email,
+                biografia, fotoPerfil, senha, true);
+            if (erroValidacao != null) {
+                JOptionPane.showMessageDialog(this, erroValidacao);
                 return;
             }
 
             try {
-                boolean sucesso = sistema.cadastrarUsuario(nome, email, senha, fotoPerfil, biografia);
+                boolean sucesso = sistema.cadastrarUsuario(nome, email, senha,
+                    fotoPerfil, biografia);
                 if (sucesso) {
                     JOptionPane.showMessageDialog(this, "Cadastro realizado com sucesso!");
                     mainFrame.mostrarInicio();
                 } else {
-                    JOptionPane.showMessageDialog(this, "Email já cadastrado.");
+                    JOptionPane.showMessageDialog(this, "E-mail inválido ou já cadastrado.");
                 }
-            } catch (java.sql.SQLException ex) {
+            } catch (Exception ex) {
                 ex.printStackTrace();
                 JOptionPane.showMessageDialog(
                     this,

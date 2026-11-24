@@ -1,0 +1,45 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Compilar projeto Java",
+            "type": "shell",
+            "command": "javac",
+            "args": [
+                "-encoding",
+                "UTF-8",
+                "-cp",
+                "${workspaceFolder}\\lib\\postgresql-42.7.7.jar",
+                "-d",
+                "${workspaceFolder}\\out",
+                "${workspaceFolder}\\projeto rede social\\dados\\*.java",
+                "${workspaceFolder}\\projeto rede social\\dao\\*.java",
+                "${workspaceFolder}\\projeto rede social\\negocios\\*.java",
+                "${workspaceFolder}\\projeto rede social\\ui\\*.java"
+            ],
+            "options": {
+                "env": {
+                    "JAVA_TOOL_OPTIONS": "-Xms16m -Xmx128m -XX:MarkStackSize=1024"
+                }
+            },
+            "problemMatcher": "$javac"
+        },
+        {
+            "label": "Executar projeto Java",
+            "type": "shell",
+            "dependsOn": "Compilar projeto Java",
+            "command": "java",
+            "args": [
+                "-cp",
+                "${workspaceFolder}\\out;${workspaceFolder}\\lib\\postgresql-42.7.7.jar",
+                "negocios.Main"
+            ],
+            "options": {
+                "env": {
+                    "JAVA_TOOL_OPTIONS": "-Xms16m -Xmx128m -XX:MarkStackSize=1024"
+                }
+            },
+            "problemMatcher": []
+        }
+    ]
+}

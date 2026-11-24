@@ -33,10 +33,10 @@ WHERE table_schema = 'public'
   AND table_name IN ('usuarios', 'fotos', 'comentarios', 'mensagens', 'curtidas', 'compartilhamentos', 'seguidores', 'hashtags', 'fotos_hashtags')
 ORDER BY table_name, column_name;
 
--- 4) Verificar se login é único
-SELECT login, COUNT(*)
+-- 4) Verificar duplicidades de e-mail/login sem diferenciar maiúsculas de minúsculas
+SELECT LOWER(login) AS login_normalizado, COUNT(*)
 FROM usuarios
-GROUP BY login
+GROUP BY LOWER(login)
 HAVING COUNT(*) > 1;
 
 -- 5) Verificar chaves estrangeiras
@@ -57,15 +57,19 @@ WHERE schemaname = 'public'
       'idx_mensagens_conversa',
       'idx_seguidores_seguido',
       'ux_usuarios_login',
+      'ux_usuarios_login_normalizado',
       'ux_hashtags_texto'
   )
 ORDER BY indexname;
 
 -- 7) Verificar se o banco está pronto para a aplicação
 SELECT 'usuarios' AS tabela,
-       EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'usuarios') AS existe,
+       EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'usuarios' AND column_name = 'id') AS existe,
+       EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'usuarios' AND column_name = 'nome') AS tem_nome,
        EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'usuarios' AND column_name = 'login') AS tem_login,
-       EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'usuarios' AND column_name = 'senha') AS tem_senha;
+       EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'usuarios' AND column_name = 'senha') AS tem_senha,
+       EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'usuarios' AND column_name = 'caminho_foto_perfil') AS tem_caminho_foto_perfil,
+       EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'usuarios' AND column_name = 'biografia') AS tem_biografia;
 
 SELECT 'fotos' AS tabela,
        EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'fotos') AS existe,

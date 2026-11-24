@@ -6,10 +6,12 @@ import negocios.Sistema;
 
 import javax.swing.*;
 import java.awt.*;
-import java.util.Collections;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.io.File;
+import java.net.URL;
+import javax.imageio.ImageIO;
 
 public class FeedPanel extends JPanel {
     private Sistema sistema;
@@ -22,19 +24,13 @@ public class FeedPanel extends JPanel {
         setLayout(new BorderLayout());
         setBackground(MainFrame.AMARELO_CLARO);
 
-        ImageIcon logoIcon = new ImageIcon("images/logo.png");
-        Image img = logoIcon.getImage().getScaledInstance(120, 120, Image.SCALE_SMOOTH);
-        JLabel logoLabel = new JLabel(new ImageIcon(img));
-        logoLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        add(logoLabel, BorderLayout.NORTH);
-
         criarMenuLateral();
         criarAreaFeed();
         carregarPublicacoes();
     }
 
     private void criarMenuLateral() {
-        JPanel menu = new JPanel(new GridLayout(6, 1));
+        JPanel menu = new JPanel(new GridLayout(7, 1));
         menu.setPreferredSize(new Dimension(150, getHeight()));
         menu.setBackground(MainFrame.AMARELO_MEDIO);
 
@@ -61,6 +57,7 @@ public class FeedPanel extends JPanel {
             mainFrame.mostrarLogin();
         });
 
+        menu.add(MainFrame.criarLogo(132, 132));
         menu.add(new JLabel(" MENU ", SwingConstants.CENTER));
         menu.add(btnPublicar);
         menu.add(btnExplorar);
@@ -81,16 +78,22 @@ public class FeedPanel extends JPanel {
 
     private void carregarPublicacoes() {
         feedArea.removeAll();
-
-        Usuario atual = sistema.getUsuarioLogado();
-        List<Usuario> seguindo = atual.getSeguindo();
-
-        for (Usuario seguido : seguindo) {
-            List<Foto> publicacoes = seguido.getPublicacoes();
-            Collections.reverse(publicacoes); 
-            for (Foto foto : publicacoes) {
+        try {
+            List<Foto> publicacoes = sistema.listarPublicacoesDoFeed();
+            if (publicacoes.isEmpty()) {
+                JLabel vazio = new JLabel("Nenhuma publicação sua ou de quem você segue.");
+                vazio.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+                feedArea.add(vazio);
+            } else {
+                for (Foto foto : publicacoes) {
                 feedArea.add(criarCardPublicacao(foto));
+                }
             }
+        } catch (Exception e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this,
+                "Não foi possível carregar as publicações.\n" + e.getMessage(),
+                "Erro ao carregar feed", JOptionPane.ERROR_MESSAGE);
         }
 
         revalidate();
@@ -103,33 +106,21 @@ public class FeedPanel extends JPanel {
             BorderFactory.createLineBorder(MainFrame.AMARELO_BORDA, 2),
             foto.getAutor().getNome()
         ));
-        card.setBackground(MainFrame.AMARELO_CLARO);
+        card.setBackground(MainFrame.AMARELO_CARD);
+        card.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(MainFrame.AMARELO_BORDA, 2),
+            BorderFactory.createTitledBorder(
+                BorderFactory.createLineBorder(MainFrame.AMARELO_BORDA, 1),
+                foto.getAutor().getNome()
+            )
+        ));
 
-        // Imagem centralizada
-        JLabel imagemLabel;
-        try {
-            ImageIcon icon;
-            String caminho = foto.getCaminhoArquivo();
-            if (caminho.startsWith("http://") || caminho.startsWith("https://")) {
-                java.net.URL url = new java.net.URL(caminho);
-                icon = new ImageIcon(url);
-            } else {
-                java.io.File file = new java.io.File(caminho);
-                if (file.exists()) {
-                    icon = new ImageIcon(file.getAbsolutePath());
-                } else {
-                    icon = new ImageIcon(caminho);
-                }
-            }
-            Image img = icon.getImage().getScaledInstance(200, 200, Image.SCALE_SMOOTH);
-            imagemLabel = new JLabel(new ImageIcon(img));
-        } catch (Exception e) {
-            imagemLabel = new JLabel("[Imagem não encontrada]");
-        }
+        JLabel imagemLabel = criarImagemPublicacao(foto.getCaminhoArquivo());
         imagemLabel.setHorizontalAlignment(SwingConstants.CENTER);
 
         JPanel imagemPanel = new JPanel(new BorderLayout());
-        imagemPanel.setBackground(MainFrame.AMARELO_CLARO);
+        imagemPanel.setBackground(MainFrame.AMARELO_PALE);
+        imagemPanel.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
         imagemPanel.add(imagemLabel, BorderLayout.CENTER);
 
         JLabel legendaLabel = new JLabel("<html><b>" + foto.getLegenda() + "</b></html>");
@@ -138,8 +129,12 @@ public class FeedPanel extends JPanel {
         JLabel curtidasLabel = new JLabel("Curtidas: " + foto.getCurtidas().size());
         JLabel compartilhamentosLabel = new JLabel("Compartilhamentos: " + foto.getCompartilhamentos().size());
 
-        JButton btnCurtir = new JButton("Curtir");
-        JButton btnCompartilhar = new JButton("Compartilhar");
+        Usuario atual = sistema.getUsuarioLogado();
+        boolean jaCurtiu = foto.getCurtidas().stream().anyMatch(usuario -> usuario.getId() == atual.getId());
+        boolean jaCompartilhou = foto.getCompartilhamentos().stream()
+            .anyMatch(usuario -> usuario.getId() == atual.getId());
+        JButton btnCurtir = new JButton(jaCurtiu ? "Descurtir" : "Curtir");
+        JButton btnCompartilhar = new JButton(jaCompartilhou ? "Remover compartilhamento" : "Compartilhar");
         JButton btnComentarios = new JButton("Comentários");
 
         for (JButton btn : new JButton[]{btnCurtir, btnCompartilhar, btnComentarios}) {
@@ -153,34 +148,44 @@ public class FeedPanel extends JPanel {
         btnCurtir.addActionListener(e -> {
             if (sistema.curtirFoto(foto)) {
                 curtidasLabel.setText("Curtidas: " + foto.getCurtidas().size());
+                boolean curtiu = foto.getCurtidas().stream()
+                    .anyMatch(usuario -> usuario.getId() == atual.getId());
+                btnCurtir.setText(curtiu ? "Descurtir" : "Curtir");
             } else {
-                JOptionPane.showMessageDialog(null, "Você já curtiu esta foto.");
+                JOptionPane.showMessageDialog(this, "Não foi possível atualizar a curtida.");
             }
         });
 
         btnCompartilhar.addActionListener(e -> {
             if (sistema.compartilharFoto(foto)) {
                 compartilhamentosLabel.setText("Compartilhamentos: " + foto.getCompartilhamentos().size());
-                JOptionPane.showMessageDialog(null, "Foto compartilhada com sucesso!");
+                boolean compartilhou = foto.getCompartilhamentos().stream()
+                    .anyMatch(usuario -> usuario.getId() == atual.getId());
+                btnCompartilhar.setText(compartilhou ? "Remover compartilhamento" : "Compartilhar");
             } else {
-                JOptionPane.showMessageDialog(null, "Você já compartilhou esta foto.");
+                JOptionPane.showMessageDialog(this, "Não foi possível atualizar o compartilhamento.");
             }
         });
 
         btnComentarios.addActionListener(e -> mostrarComentarios(foto));
 
         JPanel botoes = new JPanel();
-        botoes.setBackground(MainFrame.AMARELO_CLARO);
+        botoes.setBackground(MainFrame.AMARELO_CARD);
         botoes.add(btnCurtir);
         botoes.add(btnCompartilhar);
         botoes.add(btnComentarios);
 
         JPanel centro = new JPanel();
-        centro.setBackground(MainFrame.AMARELO_CLARO);
+        centro.setBackground(MainFrame.AMARELO_CARD);
         centro.setLayout(new BoxLayout(centro, BoxLayout.Y_AXIS));
         centro.add(imagemPanel);
         centro.add(Box.createVerticalStrut(8));
         centro.add(legendaLabel);
+        if (!foto.getHashtags().isEmpty()) {
+            JLabel hashtagsLabel = new JLabel("#" + String.join("  #", foto.getHashtags()));
+            hashtagsLabel.setForeground(new Color(143, 83, 0));
+            centro.add(hashtagsLabel);
+        }
         centro.add(Box.createVerticalStrut(8));
         centro.add(curtidasLabel);
         centro.add(compartilhamentosLabel);
@@ -191,14 +196,47 @@ public class FeedPanel extends JPanel {
         return card;
     }
 
+    private JLabel criarImagemPublicacao(String caminho) {
+        if (caminho == null || caminho.trim().isEmpty()) {
+            return new JLabel("[Caminho da imagem vazio]");
+        }
+        try {
+            String valor = caminho.trim();
+            Image imagem;
+            if (valor.startsWith("http://") || valor.startsWith("https://")) {
+                imagem = ImageIO.read(new URL(valor));
+            } else {
+                File arquivo = new File(valor);
+                if (!arquivo.isAbsolute()) {
+                    arquivo = arquivo.getAbsoluteFile();
+                }
+                imagem = ImageIO.read(arquivo);
+            }
+            if (imagem == null) {
+                return new JLabel("[O arquivo não é uma imagem compatível]");
+            }
+            return new JLabel(new ImageIcon(imagem.getScaledInstance(200, 200, Image.SCALE_SMOOTH)));
+        } catch (Exception ex) {
+            JLabel erro = new JLabel("[Imagem não encontrada ou inacessível]");
+            erro.setToolTipText(caminho);
+            return erro;
+        }
+    }
+
     private void mostrarComentarios(Foto foto) {
+        try {
+            sistema.atualizarComentarios(foto);
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Não foi possível carregar comentários:\n" + ex.getMessage());
+            return;
+        }
         JPanel painelComentarios = new JPanel();
         painelComentarios.setLayout(new BorderLayout());
         painelComentarios.setPreferredSize(new Dimension(350, 250));
 
         JTextArea areaComentarios = new JTextArea();
         areaComentarios.setEditable(false);
-        areaComentarios.setBackground(MainFrame.AMARELO_CLARO);
+        areaComentarios.setBackground(MainFrame.AMARELO_PALE);
         areaComentarios.setForeground(Color.DARK_GRAY);
 
         StringBuilder comentariosTexto = new StringBuilder();
@@ -238,11 +276,25 @@ public class FeedPanel extends JPanel {
         btnEnviarComentario.addActionListener(e -> {
             String texto = campoNovoComentario.getText().trim();
             if (!texto.isEmpty()) {
-                sistema.comentarFoto(foto, texto);
+                if (!sistema.comentarFoto(foto, texto)) {
+                    JOptionPane.showMessageDialog(dialog, "Não foi possível salvar o comentário.");
+                    return;
+                }
+                try {
+                    sistema.atualizarComentarios(foto);
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(dialog, "O comentário foi enviado, mas não foi possível atualizar a lista.");
+                    return;
+                }
                 if (areaComentarios.getText().equals("Seja o primeiro a comentar!")) {
                     areaComentarios.setText("");
                 }
-                areaComentarios.append(sistema.getUsuarioLogado().getNome() + ": " + texto + "\n");
+                StringBuilder comentariosAtualizados = new StringBuilder();
+                for (dados.Comentario comentario : foto.getComentarios()) {
+                    comentariosAtualizados.append(comentario.getAutor()).append(": ")
+                        .append(comentario.getMensagem()).append("\n");
+                }
+                areaComentarios.setText(comentariosAtualizados.toString());
                 campoNovoComentario.setText("");
             }
         });
@@ -253,21 +305,53 @@ public class FeedPanel extends JPanel {
 
     private void publicarFoto() {
         JTextField legendaField = new JTextField();
+        JTextField hashtagsField = new JTextField();
         JTextField caminhoField = new JTextField();
+        JButton escolherArquivo = new JButton("Selecionar arquivo...");
+        escolherArquivo.addActionListener(event -> {
+            JFileChooser seletor = new JFileChooser();
+            seletor.setDialogTitle("Selecionar imagem para publicação");
+            int escolha = seletor.showOpenDialog(this);
+            if (escolha == JFileChooser.APPROVE_OPTION) {
+                caminhoField.setText(seletor.getSelectedFile().getAbsolutePath());
+            }
+        });
+
+        JPanel campoCaminho = new JPanel(new BorderLayout(6, 0));
+        campoCaminho.add(caminhoField, BorderLayout.CENTER);
+        campoCaminho.add(escolherArquivo, BorderLayout.EAST);
 
         Object[] fields = {
             "Legenda:", legendaField,
-            "Caminho da imagem:", caminhoField
+            "Hashtags (ex.: #viagem #praia):", hashtagsField,
+            "Imagem (caminho local ou URL):", campoCaminho
         };
 
         int result = JOptionPane.showConfirmDialog(null, fields, "Nova Publicação", JOptionPane.OK_CANCEL_OPTION);
 
         if (result == JOptionPane.OK_OPTION) {
             String legenda = legendaField.getText();
-            String caminho = caminhoField.getText();
+            String caminho = caminhoField.getText().trim();
 
             if (!legenda.isEmpty() && !caminho.isEmpty()) {
-                boolean sucesso = sistema.publicarFoto(caminho, legenda);
+                if (!caminho.startsWith("http://") && !caminho.startsWith("https://")) {
+                    File arquivo = new File(caminho);
+                    if (!arquivo.isAbsolute()) {
+                        arquivo = arquivo.getAbsoluteFile();
+                    }
+                    try {
+                        if (!arquivo.isFile() || ImageIO.read(arquivo) == null) {
+                            JOptionPane.showMessageDialog(this,
+                                "O caminho não aponta para um arquivo de imagem legível:\n" + arquivo.getAbsolutePath());
+                            return;
+                        }
+                        caminho = arquivo.getAbsolutePath();
+                    } catch (java.io.IOException ex) {
+                        JOptionPane.showMessageDialog(this, "Não foi possível ler a imagem: " + ex.getMessage());
+                        return;
+                    }
+                }
+                boolean sucesso = sistema.publicarFoto(caminho, legenda, hashtagsField.getText());
                 if (sucesso) {
                     JOptionPane.showMessageDialog(null, "Foto publicada!");
                     carregarPublicacoes();
@@ -280,9 +364,19 @@ public class FeedPanel extends JPanel {
 
     private void explorarUsuarios() {
         Usuario atual = sistema.getUsuarioLogado();
-        List<Usuario> usuarios = sistema.getUsuarios();
 
         while (true) {
+            List<Usuario> usuarios;
+            try {
+                usuarios = sistema.listarUsuariosAtualizados();
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(this,
+                    "Não foi possível atualizar a lista de usuários.\n" + ex.getMessage(),
+                    "Erro ao pesquisar usuários", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
             String termo = JOptionPane.showInputDialog(null, "Pesquisar usuário por nome:", "Explorar usuários da Omeletty", JOptionPane.QUESTION_MESSAGE);
             if (termo == null) return;
 
@@ -315,14 +409,24 @@ public class FeedPanel extends JPanel {
             if (escolha == null) return;
 
             Usuario selecionado = encontrados.get(Arrays.asList(nomes).indexOf(escolha));
-            mostrarPerfilDeOutroUsuario(atual, selecionado);
+            try {
+                mostrarPerfilDeOutroUsuario(atual, selecionado);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(this,
+                    "Não foi possível carregar o perfil.\n" + ex.getMessage(),
+                    "Erro ao carregar perfil", JOptionPane.ERROR_MESSAGE);
+            }
 
             int op = JOptionPane.showConfirmDialog(null, "Deseja voltar para a pesquisa?", "Explorar", JOptionPane.YES_NO_OPTION);
             if (op != JOptionPane.YES_OPTION) break;
         }
     }
 
-    private void mostrarPerfilDeOutroUsuario(Usuario atual, Usuario usuario) {
+    private void mostrarPerfilDeOutroUsuario(Usuario atual, Usuario usuario) throws java.sql.SQLException {
+        sistema.carregarDadosPerfil(usuario);
+        sistema.carregarDadosPerfil(atual);
+
         JPanel painel = new JPanel();
         painel.setLayout(new BoxLayout(painel, BoxLayout.Y_AXIS));
         painel.setBackground(MainFrame.AMARELO_CLARO);
@@ -406,6 +510,7 @@ public class FeedPanel extends JPanel {
                 JLabel legenda = new JLabel("<html><i>" + f.getLegenda() + "</i></html>");
                 legenda.setAlignmentX(Component.CENTER_ALIGNMENT);
                 fotoPanel.add(legenda);
+                adicionarResumoInteracoes(fotoPanel, f);
 
                 fotoPanel.add(Box.createVerticalStrut(10));
                 pubPanel.add(fotoPanel);
@@ -415,7 +520,7 @@ public class FeedPanel extends JPanel {
             painel.add(scroll);
         }
 
-        boolean seguindo = atual.getSeguindo().contains(usuario);
+        boolean seguindo = sistema.estaSeguindo(usuario);
         String acao = seguindo ? "Deixar de seguir" : "Seguir";
         Object[] opcoes = {acao, "Voltar"};
 
@@ -549,9 +654,9 @@ public class FeedPanel extends JPanel {
         // Informações do usuário
         StringBuilder info = new StringBuilder();
         info.append("<html>");
-        info.append("<h2>Perfil de ").append(atual.getNome()).append("</h2>");
-        info.append("<b>Email:</b> ").append(atual.getEmail()).append("<br>");
-        info.append("<b>Biografia:</b> ").append(atual.getBiografia() != null ? atual.getBiografia() : "Nenhuma").append("<br>");
+        info.append("<h2>Perfil de ").append(escaparHtml(atual.getNome())).append("</h2>");
+        info.append("<b>Email:</b> ").append(escaparHtml(atual.getEmail())).append("<br>");
+        info.append("<b>Biografia:</b> ").append(escaparHtml(atual.getBiografia() != null ? atual.getBiografia() : "Nenhuma")).append("<br>");
         info.append("<b>Seguidores:</b> ").append(atual.getSeguidores().size()).append("<br>");
         info.append("<b>Seguindo:</b> ").append(atual.getSeguindo().size()).append("<br>");
         info.append("</html>");
@@ -602,6 +707,7 @@ public class FeedPanel extends JPanel {
                 JLabel legenda = new JLabel("<html><i>" + f.getLegenda() + "</i></html>");
                 legenda.setAlignmentX(Component.CENTER_ALIGNMENT);
                 fotoPanel.add(legenda);
+                adicionarResumoInteracoes(fotoPanel, f);
 
                 fotoPanel.add(Box.createVerticalStrut(10));
                 pubPanel.add(fotoPanel);
@@ -614,32 +720,107 @@ public class FeedPanel extends JPanel {
         int op = JOptionPane.showOptionDialog(
             null,
             painel,
-            "Meu Perfil - Omeletty",
-            JOptionPane.YES_NO_OPTION,
+            "Meu Perfil - Omellety",
+            JOptionPane.YES_NO_CANCEL_OPTION,
             JOptionPane.INFORMATION_MESSAGE,
             null,
-            new Object[]{"Editar Perfil", "Fechar"},
+            new Object[]{"Editar Conta", "Excluir Conta", "Fechar"},
             "Fechar"
         );
 
         if (op == 0) {
             JTextField nomeField = new JTextField(atual.getNome());
+            JTextField emailField = new JTextField(atual.getEmail());
             JTextField bioField = new JTextField(atual.getBiografia() != null ? atual.getBiografia() : "");
             JTextField fotoField = new JTextField(atual.getFotoPerfil() != null ? atual.getFotoPerfil() : "");
+            JButton escolherFotoPerfil = new JButton("Selecionar arquivo...");
+            escolherFotoPerfil.addActionListener(event -> {
+                JFileChooser seletor = new JFileChooser();
+                seletor.setDialogTitle("Selecionar foto de perfil");
+                if (seletor.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+                    fotoField.setText(seletor.getSelectedFile().getAbsolutePath());
+                }
+            });
+            JPanel campoFotoPerfil = new JPanel(new BorderLayout(6, 0));
+            campoFotoPerfil.add(fotoField, BorderLayout.CENTER);
+            campoFotoPerfil.add(escolherFotoPerfil, BorderLayout.EAST);
+            JPasswordField senhaAtualField = new JPasswordField();
+            JPasswordField novaSenhaField = new JPasswordField();
 
             Object[] fields = {
                 "Nome:", nomeField,
+                "E-mail:", emailField,
                 "Biografia:", bioField,
-                "Caminho da foto de perfil:", fotoField
+                "Foto de perfil:", campoFotoPerfil,
+                "Senha atual (obrigatória para trocar senha):", senhaAtualField,
+                "Nova senha (opcional):", novaSenhaField
             };
 
-            int res = JOptionPane.showConfirmDialog(null, fields, "Editar Perfil", JOptionPane.OK_CANCEL_OPTION);
+            int res = JOptionPane.showConfirmDialog(null, fields, "Editar Conta", JOptionPane.OK_CANCEL_OPTION);
             if (res == JOptionPane.OK_OPTION) {
-                atual.setNome(nomeField.getText());
-                atual.setBiografia(bioField.getText());
-                atual.setFotoPerfil(fotoField.getText());
-                JOptionPane.showMessageDialog(null, "Perfil atualizado!");
+                String caminhoFoto = fotoField.getText().trim();
+                if (!caminhoFoto.isEmpty() && !caminhoFoto.startsWith("http://") && !caminhoFoto.startsWith("https://")) {
+                    try {
+                        File arquivo = new File(caminhoFoto).getAbsoluteFile();
+                        if (!arquivo.isFile() || ImageIO.read(arquivo) == null) {
+                            JOptionPane.showMessageDialog(this, "Selecione um arquivo de imagem válido para a foto de perfil.");
+                            return;
+                        }
+                        caminhoFoto = arquivo.getAbsolutePath();
+                    } catch (java.io.IOException ex) {
+                        JOptionPane.showMessageDialog(this, "Não foi possível ler a foto de perfil: " + ex.getMessage());
+                        return;
+                    }
+                }
+                String erro = negocios.ValidacaoConta.validar(nomeField.getText(),
+                    emailField.getText(), bioField.getText(), caminhoFoto,
+                    new String(novaSenhaField.getPassword()), false);
+                if (erro != null) {
+                    JOptionPane.showMessageDialog(this, erro);
+                    return;
+                }
+                boolean atualizado = sistema.editarConta(nomeField.getText(),
+                    emailField.getText(), bioField.getText(), caminhoFoto,
+                    new String(senhaAtualField.getPassword()), new String(novaSenhaField.getPassword()));
+                JOptionPane.showMessageDialog(this, atualizado
+                    ? "Conta atualizada com sucesso."
+                    : "Não foi possível atualizar. Verifique a senha atual e se usuário/e-mail estão disponíveis.");
             }
+        } else if (op == 1) {
+            JPasswordField senhaField = new JPasswordField();
+            int confirmar = JOptionPane.showConfirmDialog(this, new Object[]{
+                "A exclusão da conta não pode ser desfeita.", "Digite sua senha para confirmar:", senhaField
+            }, "Excluir Conta", JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
+            if (confirmar == JOptionPane.OK_OPTION) {
+                if (sistema.excluirConta(new String(senhaField.getPassword()))) {
+                    JOptionPane.showMessageDialog(this, "Conta excluída.");
+                    mainFrame.mostrarLogin();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Não foi possível excluir a conta. Verifique sua senha.");
+                }
+            }
+        }
+    }
+
+    private String escaparHtml(String valor) {
+        if (valor == null) {
+            return "";
+        }
+        return valor.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            .replace("\"", "&quot;").replace("'", "&#39;");
+    }
+
+    private void adicionarResumoInteracoes(JPanel painel, dados.Foto foto) {
+        JLabel resumo = new JLabel("Curtidas: " + foto.getCurtidas().size()
+            + " | Comentários: " + foto.getComentarios().size()
+            + " | Compartilhamentos: " + foto.getCompartilhamentos().size());
+        resumo.setAlignmentX(Component.CENTER_ALIGNMENT);
+        painel.add(resumo);
+        if (!foto.getHashtags().isEmpty()) {
+            JLabel hashtags = new JLabel("#" + String.join("  #", foto.getHashtags()));
+            hashtags.setForeground(new Color(143, 83, 0));
+            hashtags.setAlignmentX(Component.CENTER_ALIGNMENT);
+            painel.add(hashtags);
         }
     }
 }    

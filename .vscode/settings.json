@@ -1,0 +1,9 @@
+{
+    "java.project.sourcePaths": [
+        "projeto rede social"
+    ],
+    "java.project.outputPath": "out",
+    "java.project.referencedLibraries": [
+        "lib/*.jar"
+    ]
+}

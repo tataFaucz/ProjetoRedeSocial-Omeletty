@@ -14,6 +14,7 @@ public class Foto {
     private List<Usuario> curtidas = new ArrayList<>();
     private List<Usuario> compartilhamentos = new ArrayList<>();
     private List<Comentario> comentarios = new ArrayList<>();
+    private List<String> hashtags = new ArrayList<>();
 
     // Construtor para carregar do banco (com id e data)
     public Foto(int id, String legenda, String caminho, Timestamp dataPostagem) {
@@ -98,5 +99,15 @@ public class Foto {
 
     public void adicionarComentario(Comentario comentario) {
         comentarios.add(comentario);
+    }
+
+    public List<String> getHashtags() {
+        return hashtags;
+    }
+
+    public void adicionarHashtag(String hashtag) {
+        if (hashtag != null && !hashtag.isBlank() && !hashtags.contains(hashtag)) {
+            hashtags.add(hashtag);
+        }
     }
 }

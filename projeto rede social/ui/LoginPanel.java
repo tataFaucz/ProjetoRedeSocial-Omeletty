@@ -18,7 +18,14 @@ public class LoginPanel extends JPanel {
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(5, 5, 5, 5);
 
-        JLabel lblEmail = new JLabel("Email:");
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.gridwidth = 2;
+        gbc.anchor = GridBagConstraints.CENTER;
+        add(MainFrame.criarLogo(150, 150), gbc);
+        gbc.gridwidth = 1;
+
+        JLabel lblEmail = new JLabel("E-mail:");
         JTextField txtEmail = new JTextField(20);
 
         JLabel lblSenha = new JLabel("Senha:");
@@ -48,21 +55,29 @@ public class LoginPanel extends JPanel {
         btnVoltar.setBorder(BorderFactory.createLineBorder(MainFrame.AMARELO_BORDA, 2));
         btnVoltar.setFont(new Font("Arial", Font.BOLD, 13));
 
-        gbc.gridx = 0; gbc.gridy = 0; add(lblEmail, gbc);
-        gbc.gridx = 1; gbc.gridy = 0; add(txtEmail, gbc);
-        gbc.gridx = 0; gbc.gridy = 1; add(lblSenha, gbc);
-        gbc.gridx = 1; gbc.gridy = 1; add(txtSenha, gbc);
-        gbc.gridx = 0; gbc.gridy = 2; add(btnEntrar, gbc);
-        gbc.gridx = 1; gbc.gridy = 2; add(btnVoltar, gbc);
+        gbc.gridx = 0; gbc.gridy = 1; add(lblEmail, gbc);
+        gbc.gridx = 1; gbc.gridy = 1; add(txtEmail, gbc);
+        gbc.gridx = 0; gbc.gridy = 2; add(lblSenha, gbc);
+        gbc.gridx = 1; gbc.gridy = 2; add(txtSenha, gbc);
+        gbc.gridx = 0; gbc.gridy = 3; add(btnEntrar, gbc);
+        gbc.gridx = 1; gbc.gridy = 3; add(btnVoltar, gbc);
 
         btnEntrar.addActionListener(e -> {
-            String email = txtEmail.getText().trim();
+            String identificador = txtEmail.getText().trim();
             String senha = new String(txtSenha.getPassword());
 
-            if (sistema.login(email, senha)) {
-                mainFrame.mostrarFeed();
-            } else {
-                JOptionPane.showMessageDialog(this, "Email ou senha incorretos.");
+            try {
+                if (sistema.login(identificador, senha)) {
+                    mainFrame.mostrarFeed();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Credenciais inválidas.");
+                }
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(this,
+                    "Não foi possível consultar a conta no PostgreSQL.\nDetalhe: " + ex.getMessage() +
+                    "\nConfira se o PostgreSQL está ativo e se a URL e as credenciais estão corretas.",
+                    "Erro de banco de dados", JOptionPane.ERROR_MESSAGE);
             }
         });
 

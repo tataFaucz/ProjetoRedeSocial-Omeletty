@@ -8,58 +8,53 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class SeguidorDAO {
-
     public void seguir(int idSeguidor, int idSeguido) throws SQLException {
-        String sql = "INSERT INTO seguidores (id_seguidor, id_seguido) VALUES (?, ?) ON CONFLICT DO NOTHING";
-
-        try (Connection conn = ConnectionFactory.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, idSeguidor);
-            stmt.setInt(2, idSeguido);
-            stmt.executeUpdate();
+        if (idSeguidor == idSeguido) {
+            throw new SQLException("Um usuário não pode seguir a si mesmo.");
+        }
+        PostgresSupport.requireExists("usuarios", idSeguidor, "Seguidor");
+        PostgresSupport.requireExists("usuarios", idSeguido, "Usuário seguido");
+        String sql = "INSERT INTO seguidores (id_seguidor, id_seguido) VALUES (?, ?) "
+            + "ON CONFLICT (id_seguidor, id_seguido) DO NOTHING";
+        try (Connection connection = ConnectionFactory.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setInt(1, idSeguidor);
+            statement.setInt(2, idSeguido);
+            statement.executeUpdate();
         }
     }
 
     public void deixarDeSeguir(int idSeguidor, int idSeguido) throws SQLException {
         String sql = "DELETE FROM seguidores WHERE id_seguidor = ? AND id_seguido = ?";
-
-        try (Connection conn = ConnectionFactory.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, idSeguidor);
-            stmt.setInt(2, idSeguido);
-            stmt.executeUpdate();
+        try (Connection connection = ConnectionFactory.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setInt(1, idSeguidor);
+            statement.setInt(2, idSeguido);
+            statement.executeUpdate();
         }
     }
 
     public List<Integer> listarSeguidores(int idSeguido) throws SQLException {
-        List<Integer> ids = new ArrayList<>();
-        String sql = "SELECT id_seguidor FROM seguidores WHERE id_seguido = ?";
-
-        try (Connection conn = ConnectionFactory.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, idSeguido);
-            try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    ids.add(rs.getInt("id_seguidor"));
-                }
-            }
-        }
-        return ids;
+        return listarIds("id_seguidor", idSeguido, "id_seguido");
     }
 
     public List<Integer> listarSeguindo(int idSeguidor) throws SQLException {
-        List<Integer> ids = new ArrayList<>();
-        String sql = "SELECT id_seguido FROM seguidores WHERE id_seguidor = ?";
+        return listarIds("id_seguido", idSeguidor, "id_seguidor");
+    }
 
-        try (Connection conn = ConnectionFactory.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, idSeguidor);
-            try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    ids.add(rs.getInt("id_seguido"));
+    private List<Integer> listarIds(String resultColumn, int filterId, String filterColumn)
+            throws SQLException {
+        List<Integer> result = new ArrayList<>();
+        String sql = "SELECT " + resultColumn + " FROM seguidores WHERE " + filterColumn + " = ?";
+        try (Connection connection = ConnectionFactory.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setInt(1, filterId);
+            try (ResultSet rows = statement.executeQuery()) {
+                while (rows.next()) {
+                    result.add(rows.getInt(resultColumn));
                 }
             }
         }
-        return ids;
+        return result;
     }
 }

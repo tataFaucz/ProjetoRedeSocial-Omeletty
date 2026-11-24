@@ -15,6 +15,15 @@ CREATE TABLE IF NOT EXISTS usuarios (
 CREATE UNIQUE INDEX IF NOT EXISTS ux_usuarios_login
     ON usuarios (login);
 
+ALTER TABLE usuarios
+    ADD COLUMN IF NOT EXISTS caminho_foto_perfil VARCHAR(255);
+
+ALTER TABLE usuarios
+    ADD COLUMN IF NOT EXISTS biografia TEXT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_usuarios_login_normalizado
+    ON usuarios (LOWER(BTRIM(login)));
+
 CREATE TABLE IF NOT EXISTS fotos (
     id              SERIAL       PRIMARY KEY,
     id_usuario      INTEGER      NOT NULL,
