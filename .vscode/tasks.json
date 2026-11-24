@@ -2,36 +2,31 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Compilar projeto Java",
+            "label": "Compilar projeto MongoDB",
             "type": "shell",
-            "command": "javac",
+            "command": "mvn",
             "args": [
-                "-encoding",
-                "UTF-8",
-                "-cp",
-                "${workspaceFolder}\\lib\\postgresql-42.7.7.jar",
-                "-d",
-                "${workspaceFolder}\\out",
-                "${workspaceFolder}\\projeto rede social\\dados\\*.java",
-                "${workspaceFolder}\\projeto rede social\\dao\\*.java",
-                "${workspaceFolder}\\projeto rede social\\negocios\\*.java",
-                "${workspaceFolder}\\projeto rede social\\ui\\*.java"
+                "clean",
+                "package",
+                "dependency:copy-dependencies",
+                "-DincludeScope=runtime",
+                "-DoutputDirectory=target/dependency"
             ],
             "options": {
                 "env": {
                     "JAVA_TOOL_OPTIONS": "-Xms16m -Xmx128m -XX:MarkStackSize=1024"
                 }
             },
-            "problemMatcher": "$javac"
+            "problemMatcher": []
         },
         {
-            "label": "Executar projeto Java",
+            "label": "Executar projeto MongoDB",
             "type": "shell",
-            "dependsOn": "Compilar projeto Java",
+            "dependsOn": "Compilar projeto MongoDB",
             "command": "java",
             "args": [
                 "-cp",
-                "${workspaceFolder}\\out;${workspaceFolder}\\lib\\postgresql-42.7.7.jar",
+                "${workspaceFolder}\\target\\classes;${workspaceFolder}\\target\\dependency\\*",
                 "negocios.Main"
             ],
             "options": {

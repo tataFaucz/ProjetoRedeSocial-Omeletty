@@ -6,12 +6,8 @@
             "name": "Executar Rede Social",
             "request": "launch",
             "mainClass": "negocios.Main",
-            "classPaths": [
-                "${workspaceFolder}\\out",
-                "${workspaceFolder}\\lib\\postgresql-42.7.7.jar"
-            ],
             "vmArgs": "-Xms16m -Xmx128m -XX:MarkStackSize=1024",
-            "preLaunchTask": "Compilar projeto Java"
+            "preLaunchTask": "Compilar projeto MongoDB"
         }
     ]
 }

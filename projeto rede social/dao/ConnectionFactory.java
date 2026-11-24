@@ -1,37 +1,85 @@
 package dao;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.util.Properties;
+import com.mongodb.ConnectionString;
+import com.mongodb.MongoClientSettings;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoClients;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.IndexOptions;
+import com.mongodb.client.model.Indexes;
+import org.bson.Document;
 
 public final class ConnectionFactory {
-    private static final String URL = configuracao("POSTGRES_URL", "DB_URL",
-        "jdbc:postgresql://" + configuracao("POSTGRES_HOST", "DB_HOST", "localhost")
-            + ":" + configuracao("POSTGRES_PORT", "DB_PORT", "5432")
-            + "/" + configuracao("POSTGRES_DATABASE", "DB_NAME", "rede_social"));
-    private static final String USER = configuracao("POSTGRES_USER", "DB_USER", null);
-    private static final String PASSWORD = configuracao("POSTGRES_PASSWORD", "DB_PASSWORD", null);
+    private static final String URI = configuracao("MONGODB_URI", "NOSQL_URI",
+        "mongodb://localhost:27017");
+    private static final String DATABASE_NAME = configuracao("MONGODB_DATABASE", "NOSQL_DATABASE",
+        "rede_social_nosql");
+    private static final MongoClient CLIENT = MongoClients.create(
+        MongoClientSettings.builder().applyConnectionString(new ConnectionString(URI)).build());
+    private static final MongoDatabase DATABASE = CLIENT.getDatabase(DATABASE_NAME);
+    private static volatile boolean indexesReady;
 
     private ConnectionFactory() {
     }
 
-    public static Connection getConnection() throws SQLException {
-        Properties properties = new Properties();
-        if (USER != null) {
-            properties.setProperty("user", USER);
+    public static MongoDatabase getDatabase() {
+        if (!indexesReady) {
+            synchronized (ConnectionFactory.class) {
+                if (!indexesReady) {
+                    criarIndices();
+                    indexesReady = true;
+                }
+            }
         }
-        if (PASSWORD != null) {
-            properties.setProperty("password", PASSWORD);
-        }
-        return DriverManager.getConnection(URL, properties);
+        return DATABASE;
+    }
+
+    public static MongoCollection<Document> getCollection(String name) {
+        return getDatabase().getCollection(name);
+    }
+
+    private static void criarIndices() {
+        indiceUnico("usuarios", "id");
+        indiceUnico("usuarios", "login");
+        indiceUnico("fotos", "id");
+        DATABASE.getCollection("fotos").createIndex(
+            Indexes.compoundIndex(Indexes.ascending("id_usuario"), Indexes.descending("data_postagem")));
+        DATABASE.getCollection("fotos").createIndex(Indexes.ascending("hashtagIds"));
+        indiceUnico("comentarios", "id");
+        DATABASE.getCollection("comentarios").createIndex(
+            Indexes.compoundIndex(Indexes.ascending("id_foto"), Indexes.ascending("data_comentario")));
+        indiceUnico("mensagens", "id");
+        DATABASE.getCollection("mensagens").createIndex(
+            Indexes.compoundIndex(
+                Indexes.ascending("id_remetente"),
+                Indexes.ascending("id_destinatario"),
+                Indexes.ascending("data_envio")));
+        indiceCompostoUnico("curtidas", "id_usuario", "id_foto");
+        indiceCompostoUnico("compartilhamentos", "id_usuario", "id_foto");
+        indiceCompostoUnico("seguidores", "id_seguidor", "id_seguido");
+        DATABASE.getCollection("seguidores").createIndex(Indexes.ascending("id_seguido"));
+        indiceUnico("hashtags", "id");
+        indiceUnico("hashtags", "texto");
+    }
+
+    private static void indiceUnico(String collection, String field) {
+        DATABASE.getCollection(collection).createIndex(
+            Indexes.ascending(field), new IndexOptions().unique(true));
+    }
+
+    private static void indiceCompostoUnico(String collection, String first, String second) {
+        DATABASE.getCollection(collection).createIndex(
+            Indexes.compoundIndex(Indexes.ascending(first), Indexes.ascending(second)),
+            new IndexOptions().unique(true));
     }
 
     private static String configuracao(String principal, String alternativa, String padrao) {
         String valor = configuracao(principal);
-        return valor == null || valor.isBlank()
-            ? valorOuPadrao(configuracao(alternativa), padrao)
-            : valor;
+        if (valor == null || valor.isBlank()) {
+            valor = configuracao(alternativa);
+        }
+        return valor == null || valor.isBlank() ? padrao : valor;
     }
 
     private static String configuracao(String nome) {
@@ -40,9 +88,5 @@ public final class ConnectionFactory {
             valor = System.getenv(nome);
         }
         return valor;
-    }
-
-    private static String valorOuPadrao(String valor, String padrao) {
-        return valor == null || valor.isBlank() ? padrao : valor;
     }
 }

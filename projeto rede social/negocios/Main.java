@@ -14,8 +14,8 @@ public class Main {
             exception.printStackTrace();
             SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(
                 null,
-                "Não foi possível conectar ao PostgreSQL. Confira se o serviço está ativo e se "
-                    + "POSTGRES_URL/DB_URL e as credenciais estão configurados.",
+                "Não foi possível conectar ao MongoDB. Confira se o serviço está ativo e se "
+                    + "MONGODB_URI e as credenciais estão configurados.",
                 "Erro de banco de dados",
                 JOptionPane.ERROR_MESSAGE
             ));

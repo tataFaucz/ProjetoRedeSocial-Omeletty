@@ -1,60 +1,52 @@
 package dao;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.UpdateOptions;
+import org.bson.Document;
+
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.mongodb.client.model.Filters.eq;
+
 public class SeguidorDAO {
+    private static final String COLLECTION = "seguidores";
+
     public void seguir(int idSeguidor, int idSeguido) throws SQLException {
         if (idSeguidor == idSeguido) {
             throw new SQLException("Um usuário não pode seguir a si mesmo.");
         }
-        PostgresSupport.requireExists("usuarios", idSeguidor, "Seguidor");
-        PostgresSupport.requireExists("usuarios", idSeguido, "Usuário seguido");
-        String sql = "INSERT INTO seguidores (id_seguidor, id_seguido) VALUES (?, ?) "
-            + "ON CONFLICT (id_seguidor, id_seguido) DO NOTHING";
-        try (Connection connection = ConnectionFactory.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setInt(1, idSeguidor);
-            statement.setInt(2, idSeguido);
-            statement.executeUpdate();
-        }
+        MongoSupport.requireExists("usuarios", idSeguidor, "Seguidor");
+        MongoSupport.requireExists("usuarios", idSeguido, "Usuário seguido");
+        collection().updateOne(
+            new Document("id_seguidor", idSeguidor).append("id_seguido", idSeguido),
+            new Document("$setOnInsert",
+                new Document("id_seguidor", idSeguidor).append("id_seguido", idSeguido)),
+            new UpdateOptions().upsert(true));
     }
 
     public void deixarDeSeguir(int idSeguidor, int idSeguido) throws SQLException {
-        String sql = "DELETE FROM seguidores WHERE id_seguidor = ? AND id_seguido = ?";
-        try (Connection connection = ConnectionFactory.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setInt(1, idSeguidor);
-            statement.setInt(2, idSeguido);
-            statement.executeUpdate();
-        }
+        collection().deleteOne(new Document("id_seguidor", idSeguidor).append("id_seguido", idSeguido));
     }
 
     public List<Integer> listarSeguidores(int idSeguido) throws SQLException {
-        return listarIds("id_seguidor", idSeguido, "id_seguido");
+        return listarIds("id_seguidor", "id_seguido", idSeguido);
     }
 
     public List<Integer> listarSeguindo(int idSeguidor) throws SQLException {
-        return listarIds("id_seguido", idSeguidor, "id_seguidor");
+        return listarIds("id_seguido", "id_seguidor", idSeguidor);
     }
 
-    private List<Integer> listarIds(String resultColumn, int filterId, String filterColumn)
-            throws SQLException {
+    private List<Integer> listarIds(String resultField, String filterField, int filterId) {
         List<Integer> result = new ArrayList<>();
-        String sql = "SELECT " + resultColumn + " FROM seguidores WHERE " + filterColumn + " = ?";
-        try (Connection connection = ConnectionFactory.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setInt(1, filterId);
-            try (ResultSet rows = statement.executeQuery()) {
-                while (rows.next()) {
-                    result.add(rows.getInt(resultColumn));
-                }
-            }
+        for (Document document : collection().find(eq(filterField, filterId))) {
+            result.add(MongoSupport.inteiro(document, resultField));
         }
         return result;
+    }
+
+    private MongoCollection<Document> collection() {
+        return ConnectionFactory.getCollection(COLLECTION);
     }
 }

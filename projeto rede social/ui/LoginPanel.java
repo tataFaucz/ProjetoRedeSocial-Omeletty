@@ -75,8 +75,8 @@ public class LoginPanel extends JPanel {
             } catch (Exception ex) {
                 ex.printStackTrace();
                 JOptionPane.showMessageDialog(this,
-                    "Não foi possível consultar a conta no PostgreSQL.\nDetalhe: " + ex.getMessage() +
-                    "\nConfira se o PostgreSQL está ativo e se a URL e as credenciais estão corretas.",
+                    "Não foi possível consultar a conta no MongoDB.\nDetalhe: " + ex.getMessage() +
+                    "\nConfira se o MongoDB está ativo e se a URI e as credenciais estão corretas.",
                     "Erro de banco de dados", JOptionPane.ERROR_MESSAGE);
             }
         });

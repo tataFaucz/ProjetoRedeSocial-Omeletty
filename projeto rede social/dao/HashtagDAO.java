@@ -1,10 +1,12 @@
 package dao;
 
+import com.mongodb.MongoException;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.FindOneAndUpdateOptions;
+import com.mongodb.client.model.ReturnDocument;
 import dados.Foto;
+import org.bson.Document;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -12,18 +14,23 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+import static com.mongodb.client.model.Filters.eq;
+import static com.mongodb.client.model.Filters.in;
+import static com.mongodb.client.model.Updates.addToSet;
+
 public class HashtagDAO {
+    private static final String TAGS = "hashtags";
+
     public List<String> listarPorFoto(int idFoto) throws SQLException {
+        Document photo = MongoSupport.buscar("fotos", idFoto);
+        if (photo == null) {
+            return new ArrayList<>();
+        }
+        List<Integer> ids = photo.getList("hashtagIds", Integer.class, new ArrayList<>());
         List<String> result = new ArrayList<>();
-        String sql = "SELECT h.texto FROM fotos_hashtags fh "
-            + "JOIN hashtags h ON h.id = fh.id_hashtag WHERE fh.id_foto = ?";
-        try (Connection connection = ConnectionFactory.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setInt(1, idFoto);
-            try (ResultSet rows = statement.executeQuery()) {
-                while (rows.next()) {
-                    result.add(rows.getString("texto"));
-                }
+        if (!ids.isEmpty()) {
+            for (Document hashtag : collection().find(in("id", ids))) {
+                result.add(hashtag.getString("texto"));
             }
         }
         result.sort(String::compareTo);
@@ -44,67 +51,52 @@ public class HashtagDAO {
                 }
             }
         }
+        MongoSupport.requireExists("fotos", idFoto, "Publicação");
         for (String text : values) {
-            PostgresSupport.requireExists("fotos", idFoto, "Publicação");
-            int hashtagId = obterOuCriar(text);
-            String sql = "INSERT INTO fotos_hashtags (id_foto, id_hashtag) VALUES (?, ?) "
-                + "ON CONFLICT (id_foto, id_hashtag) DO NOTHING";
-            try (Connection connection = ConnectionFactory.getConnection();
-                 PreparedStatement statement = connection.prepareStatement(sql)) {
-                statement.setInt(1, idFoto);
-                statement.setInt(2, hashtagId);
-                statement.executeUpdate();
-            }
+            int idHashtag = obterOuCriar(text);
+            ConnectionFactory.getCollection("fotos").updateOne(
+                eq("id", idFoto), addToSet("hashtagIds", idHashtag));
         }
     }
 
     private int obterOuCriar(String text) throws SQLException {
-        String insert = "INSERT INTO hashtags (texto) VALUES (?) "
-            + "ON CONFLICT (texto) DO NOTHING RETURNING id";
-        try (Connection connection = ConnectionFactory.getConnection();
-             PreparedStatement statement = connection.prepareStatement(insert)) {
-            statement.setString(1, text);
-            try (ResultSet result = statement.executeQuery()) {
-                if (result.next()) {
-                    return result.getInt("id");
-                }
-            }
+        Document existing = collection().find(eq("texto", text)).first();
+        if (existing != null) {
+            return MongoSupport.inteiro(existing, "id");
         }
-        String select = "SELECT id FROM hashtags WHERE texto = ?";
-        try (Connection connection = ConnectionFactory.getConnection();
-             PreparedStatement statement = connection.prepareStatement(select)) {
-            statement.setString(1, text);
-            try (ResultSet result = statement.executeQuery()) {
-                if (result.next()) {
-                    return result.getInt("id");
-                }
+
+        Document newTag = new Document("id", MongoSupport.proximoId(TAGS)).append("texto", text);
+        try {
+            collection().insertOne(newTag);
+            return MongoSupport.inteiro(newTag, "id");
+        } catch (MongoException exception) {
+            if (!MongoSupport.chaveDuplicada(exception)) {
+                throw exception;
             }
+            Document raced = collection().find(eq("texto", text)).first();
+            if (raced != null) {
+                return MongoSupport.inteiro(raced, "id");
+            }
+            throw new SQLException("Não foi possível obter a hashtag criada.", exception);
         }
-        throw new SQLException("Não foi possível obter a hashtag criada.");
     }
 
     public List<Foto> listarFotosPorHashtag(String textoHashtag) throws SQLException {
-        List<Foto> result = new ArrayList<>();
         String text = textoHashtag.trim().replaceFirst("^#+", "").toLowerCase(Locale.ROOT);
-        String sql = "SELECT f.id, f.legenda, f.caminho_arquivo, f.data_postagem "
-            + "FROM hashtags h JOIN fotos_hashtags fh ON fh.id_hashtag = h.id "
-            + "JOIN fotos f ON f.id = fh.id_foto WHERE h.texto = ?";
-        try (Connection connection = ConnectionFactory.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setString(1, text);
-            try (ResultSet rows = statement.executeQuery()) {
-                while (rows.next()) {
-                    result.add(new Foto(
-                        rows.getInt("id"),
-                        rows.getString("legenda"),
-                        rows.getString("caminho_arquivo"),
-                        rows.getTimestamp("data_postagem")
-                    ));
-                }
-            }
+        Document hashtag = collection().find(eq("texto", text)).first();
+        List<Foto> result = new ArrayList<>();
+        if (hashtag == null) {
+            return result;
         }
-        result.sort((left, right) ->
-            right.getDataPostagem().compareTo(left.getDataPostagem()));
+        int hashtagId = MongoSupport.inteiro(hashtag, "id");
+        for (Document document : ConnectionFactory.getCollection("fotos").find(eq("hashtagIds", hashtagId))) {
+            result.add(MongoSupport.foto(document));
+        }
+        result.sort((left, right) -> right.getDataPostagem().compareTo(left.getDataPostagem()));
         return result;
+    }
+
+    private MongoCollection<Document> collection() {
+        return ConnectionFactory.getCollection(TAGS);
     }
 }

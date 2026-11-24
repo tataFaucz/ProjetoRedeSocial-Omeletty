@@ -1,41 +1,36 @@
 package dao;
 
+import com.mongodb.client.MongoCollection;
 import dados.Mensagem;
 import dados.Usuario;
+import org.bson.Document;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
+import static com.mongodb.client.model.Filters.or;
+
 public class MensagemDAO {
+    private static final String COLLECTION = "mensagens";
+
     public void enviar(Mensagem mensagem) throws SQLException {
-        int remetente = mensagem.getRemetente().getId();
-        int destinatario = mensagem.getDestinatario().getId();
-        if (remetente == destinatario) {
+        int senderId = mensagem.getRemetente().getId();
+        int recipientId = mensagem.getDestinatario().getId();
+        if (senderId == recipientId) {
             throw new SQLException("Não é possível enviar uma mensagem para si mesmo.");
         }
-        PostgresSupport.requireExists("usuarios", remetente, "Remetente");
-        PostgresSupport.requireExists("usuarios", destinatario, "Destinatário");
-        String sql = "INSERT INTO mensagens "
-            + "(id_remetente, id_destinatario, conteudo, data_envio) VALUES (?, ?, ?, ?)";
-        Timestamp timestamp = mensagem.getTimestamp();
-        if (timestamp == null) {
-            timestamp = new Timestamp(System.currentTimeMillis());
-        }
-        try (Connection connection = ConnectionFactory.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setInt(1, remetente);
-            statement.setInt(2, destinatario);
-            statement.setString(3, mensagem.getConteudo());
-            statement.setTimestamp(4, timestamp);
-            statement.executeUpdate();
-        }
+        MongoSupport.requireExists("usuarios", senderId, "Remetente");
+        MongoSupport.requireExists("usuarios", recipientId, "Destinatário");
+        Date date = mensagem.getTimestamp() == null
+            ? new Date() : new Date(mensagem.getTimestamp().getTime());
+        MongoSupport.inserir(COLLECTION, new Document("id_remetente", senderId)
+            .append("id_destinatario", recipientId)
+            .append("conteudo", mensagem.getConteudo())
+            .append("data_envio", date));
     }
 
     public List<Mensagem> listarMensagensEntre(Usuario remetente, Usuario destinatario)
@@ -43,31 +38,25 @@ public class MensagemDAO {
         List<Mensagem> result = new ArrayList<>();
         int senderId = remetente.getId();
         int receiverId = destinatario.getId();
-        String sql = "SELECT id, id_remetente, conteudo, data_envio FROM mensagens "
-            + "WHERE (id_remetente = ? AND id_destinatario = ?) "
-            + "OR (id_remetente = ? AND id_destinatario = ?) ORDER BY data_envio";
-        try (Connection connection = ConnectionFactory.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setInt(1, senderId);
-            statement.setInt(2, receiverId);
-            statement.setInt(3, receiverId);
-            statement.setInt(4, senderId);
-            try (ResultSet rows = statement.executeQuery()) {
-                while (rows.next()) {
-                    boolean outgoing = rows.getInt("id_remetente") == senderId;
-                    Timestamp timestamp = rows.getTimestamp("data_envio");
-                    LocalDateTime date = timestamp == null ? null
-                        : LocalDateTime.ofInstant(timestamp.toInstant(), ZoneId.systemDefault());
-                    result.add(new Mensagem(
-                        rows.getInt("id"),
-                        outgoing ? remetente : destinatario,
-                        outgoing ? destinatario : remetente,
-                        rows.getString("conteudo"),
-                        date
-                    ));
-                }
-            }
+        for (Document document : collection().find(or(
+                new Document("id_remetente", senderId).append("id_destinatario", receiverId),
+                new Document("id_remetente", receiverId).append("id_destinatario", senderId)))
+                .sort(new Document("data_envio", 1))) {
+            boolean outgoing = MongoSupport.inteiro(document, "id_remetente") == senderId;
+            Date timestamp = document.getDate("data_envio");
+            LocalDateTime date = timestamp == null ? null
+                : LocalDateTime.ofInstant(timestamp.toInstant(), ZoneId.systemDefault());
+            result.add(new Mensagem(
+                MongoSupport.inteiro(document, "id"),
+                outgoing ? remetente : destinatario,
+                outgoing ? destinatario : remetente,
+                document.getString("conteudo"),
+                date));
         }
         return result;
+    }
+
+    private MongoCollection<Document> collection() {
+        return ConnectionFactory.getCollection(COLLECTION);
     }
 }

@@ -1,67 +1,54 @@
 package dao;
 
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.UpdateOptions;
 import dados.Usuario;
+import org.bson.Document;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.mongodb.client.model.Filters.eq;
+import static com.mongodb.client.model.Filters.in;
+
 public class CompartilhamentoDAO {
+    private static final String COLLECTION = "compartilhamentos";
+
     public void compartilhar(int idUsuario, int idFoto) throws SQLException {
-        PostgresSupport.requireExists("usuarios", idUsuario, "Usuário");
-        PostgresSupport.requireExists("fotos", idFoto, "Publicação");
-        String sql = "INSERT INTO compartilhamentos (id_usuario, id_foto) VALUES (?, ?) "
-            + "ON CONFLICT (id_usuario, id_foto) DO NOTHING";
-        try (Connection connection = ConnectionFactory.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setInt(1, idUsuario);
-            statement.setInt(2, idFoto);
-            statement.executeUpdate();
-        }
+        MongoSupport.requireExists("usuarios", idUsuario, "Usuário");
+        MongoSupport.requireExists("fotos", idFoto, "Publicação");
+        collection().updateOne(
+            new Document("id_usuario", idUsuario).append("id_foto", idFoto),
+            new Document("$setOnInsert", new Document("id_usuario", idUsuario).append("id_foto", idFoto)),
+            new UpdateOptions().upsert(true));
     }
 
     public void removerCompartilhamento(int idUsuario, int idFoto) throws SQLException {
-        String sql = "DELETE FROM compartilhamentos WHERE id_usuario = ? AND id_foto = ?";
-        try (Connection connection = ConnectionFactory.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setInt(1, idUsuario);
-            statement.setInt(2, idFoto);
-            statement.executeUpdate();
-        }
+        collection().deleteOne(new Document("id_usuario", idUsuario).append("id_foto", idFoto));
     }
 
     public List<Integer> listarUsuariosQueCompartilharam(int idFoto) throws SQLException {
         List<Integer> result = new ArrayList<>();
-        String sql = "SELECT id_usuario FROM compartilhamentos WHERE id_foto = ?";
-        try (Connection connection = ConnectionFactory.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setInt(1, idFoto);
-            try (ResultSet rows = statement.executeQuery()) {
-                while (rows.next()) {
-                    result.add(rows.getInt("id_usuario"));
-                }
-            }
+        for (Document document : collection().find(eq("id_foto", idFoto))) {
+            result.add(MongoSupport.inteiro(document, "id_usuario"));
         }
         return result;
     }
 
     public List<Usuario> listarUsuarios(int idFoto) throws SQLException {
+        List<Integer> userIds = listarUsuariosQueCompartilharam(idFoto);
         List<Usuario> result = new ArrayList<>();
-        String sql = "SELECT u.id, u.nome, u.login, u.caminho_foto_perfil, u.biografia "
-            + "FROM compartilhamentos c JOIN usuarios u ON u.id = c.id_usuario "
-            + "WHERE c.id_foto = ?";
-        try (Connection connection = ConnectionFactory.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setInt(1, idFoto);
-            try (ResultSet rows = statement.executeQuery()) {
-                while (rows.next()) {
-                    result.add(PostgresSupport.usuario(rows));
-                }
-            }
+        if (userIds.isEmpty()) {
+            return result;
+        }
+        for (Document document : ConnectionFactory.getCollection("usuarios").find(in("id", userIds))) {
+            result.add(MongoSupport.usuario(document));
         }
         return result;
+    }
+
+    private MongoCollection<Document> collection() {
+        return ConnectionFactory.getCollection(COLLECTION);
     }
 }
